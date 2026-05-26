@@ -1,0 +1,8 @@
+streamlit
+PyPDF2
+langchain
+langchain-huggingface
+langchain-community
+faiss-cpu
+tiktoken
+langchain-text-splitters
