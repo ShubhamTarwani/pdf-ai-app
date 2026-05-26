@@ -35,34 +35,38 @@ if api_key:
         )
         chunks = text_splitter.split_text(text)
         
-        # 3 & 4. Create embeddings and store in FAISS vector database
-        with st.spinner("Processing PDF and creating vector embeddings..."):
-            embeddings = HuggingFaceInferenceAPIEmbeddings(api_key=api_key, model_name="sentence-transformers/all-MiniLM-l6-v2")
-            vector_store = FAISS.from_texts(chunks, embeddings)
-            st.success("PDF processed successfully!")
-            
-        # 5. User Query Input
-        user_question = st.text_input("Ask a question about your PDF:")
-        
-        if user_question:
-            # 6. Retrieve relevant chunks
-            docs = vector_store.similarity_search(user_question, k=3)
-            
-            # 7. Generate answers using the LLM
-            llm = HuggingFaceEndpoint(repo_id="mistralai/Mistral-7B-Instruct-v0.2", huggingfacehub_api_token=api_key, max_new_tokens=512)
-            prompt = ChatPromptTemplate.from_messages([
-                ("system", "Answer the user's question using only the following context. If you don't know the answer based on the context, say so.\n\nContext:\n{context}"),
-                ("human", "{question}")
-            ])
-            
-            chain = prompt | llm | StrOutputParser()
-            
-            with st.spinner("Generating answer..."):
-                context_text = "\n\n".join([doc.page_content for doc in docs])
-                response_text = chain.invoke(
-                    {"context": context_text, "question": user_question}
-                )
+        try:
+            # 3 & 4. Create embeddings and store in FAISS vector database
+            with st.spinner("Processing PDF and creating vector embeddings..."):
+                embeddings = HuggingFaceInferenceAPIEmbeddings(api_key=api_key, model_name="sentence-transformers/all-MiniLM-l6-v2")
+                vector_store = FAISS.from_texts(chunks, embeddings)
+                st.success("PDF processed successfully!")
                 
-            # --- Interactive UI Output ---
-            st.write("### Answer:")
-            st.write(response_text)
+            # 5. User Query Input
+            user_question = st.text_input("Ask a question about your PDF:")
+            
+            if user_question:
+                # 6. Retrieve relevant chunks
+                docs = vector_store.similarity_search(user_question, k=3)
+                
+                # 7. Generate answers using the LLM
+                llm = HuggingFaceEndpoint(repo_id="mistralai/Mistral-7B-Instruct-v0.2", huggingfacehub_api_token=api_key, max_new_tokens=512)
+                prompt = ChatPromptTemplate.from_messages([
+                    ("system", "Answer the user's question using only the following context. If you don't know the answer based on the context, say so.\n\nContext:\n{context}"),
+                    ("human", "{question}")
+                ])
+                
+                chain = prompt | llm | StrOutputParser()
+                
+                with st.spinner("Generating answer..."):
+                    context_text = "\n\n".join([doc.page_content for doc in docs])
+                    response_text = chain.invoke(
+                        {"context": context_text, "question": user_question}
+                    )
+                    
+                # --- Interactive UI Output ---
+                st.write("### Answer:")
+                st.write(response_text)
+        except Exception as e:
+            st.error(f"An error occurred while communicating with the API: {str(e)}")
+            st.info("Please verify your Hugging Face Access Token is correct and has 'read' permissions. If the token is correct, the Hugging Face API might be temporarily busy or rate-limiting requests from Streamlit Cloud.")
